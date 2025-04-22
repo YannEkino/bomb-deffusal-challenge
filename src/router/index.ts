@@ -29,8 +29,9 @@ const routes: Array<RouteRecordRaw> = [
   },
 ];
 
+// Use import.meta.env.BASE_URL to ensure the router base matches Vite's base configuration
 const router = createRouter({
-  history: createWebHistory(),
+  history: createWebHistory(import.meta.env.BASE_URL),
   routes,
 });
 
