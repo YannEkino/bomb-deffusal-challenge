@@ -1,31 +1,33 @@
 import { createRouter, createWebHistory } from 'vue-router';
 import type { RouteRecordRaw } from 'vue-router';
 
+// Define routes with more explicit dynamic imports
 const routes: Array<RouteRecordRaw> = [
   {
     path: '/',
     name: 'home',
-    component: () => import('../views/HomeView.vue'),
+    // Use a more explicit import method to avoid issues in production
+    component: () => import(/* webpackChunkName: "home" */ '../views/HomeView.vue')
   },
   {
     path: '/find-bomb-location',
     name: 'find-bomb-location',
-    component: () => import('../views/FindBombLocationView.vue'),
+    component: () => import(/* webpackChunkName: "find-bomb" */ '../views/FindBombLocationView.vue')
   },
   {
     path: '/unlock-bomb',
     name: 'unlock-bomb',
-    component: () => import('../views/UnlockBombView.vue'),
+    component: () => import(/* webpackChunkName: "unlock" */ '../views/UnlockBombView.vue')
   },
   {
     path: '/defuse-bomb',
     name: 'defuse-bomb',
-    component: () => import('../views/DefuseBombView.vue'),
+    component: () => import(/* webpackChunkName: "defuse" */ '../views/DefuseBombView.vue')
   },
   {
     path: '/game-over',
     name: 'game-over',
-    component: () => import('../views/GameOverView.vue'),
+    component: () => import(/* webpackChunkName: "game-over" */ '../views/GameOverView.vue')
   },
 ];
 
