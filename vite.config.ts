@@ -4,5 +4,5 @@ import vue from '@vitejs/plugin-vue'
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [vue()],
-  base: './', // Ensure assets are loaded correctly on GitHub Pages
+  base: '/bomb-deffusal-challenge/', // Set the base to match your GitHub repository name
 })
