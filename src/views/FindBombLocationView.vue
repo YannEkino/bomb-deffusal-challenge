@@ -1,10 +1,20 @@
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue';
+import { ref, onMounted, computed, onUnmounted } from 'vue';
 import { useRouter } from 'vue-router';
 import CountdownTimer from '../components/shared/CountdownTimer.vue';
+import 'leaflet/dist/leaflet.css';
+// Fix TypeScript errors by using non-typed import for Leaflet
+import L from 'leaflet';
 
 const router = useRouter();
 const timerRef = ref<InstanceType<typeof CountdownTimer> | null>(null);
+
+// Map related variables
+const mapContainer = ref<HTMLElement | null>(null);
+const map = ref<any>(null); // Using any to avoid TypeScript errors with Leaflet
+const userMarker = ref<any>(null);
+const clickMarker = ref<any>(null);
+const searchRadiusCircle = ref<any>(null);
 
 // Geolocation API related variables
 const isGeolocationSupported = ref(!!navigator.geolocation);
@@ -14,8 +24,19 @@ const distance = ref<number | null>(null);
 const errorMessage = ref('');
 const isLocationLoading = ref(true);
 
-// Mock map implementation variables - to be replaced by actual map API
-const mapClickPosition = ref<{ x: number; y: number } | null>(null);
+// Define custom marker icons
+function createMapIcons() {
+  return {
+    userIcon: L.icon({
+      iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-blue.png',
+      shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
+      iconSize: [25, 41],
+      iconAnchor: [12, 41],
+      popupAnchor: [1, -34],
+      shadowSize: [41, 41]
+    })
+  };
+}
 
 // Computed property to determine if user is close enough to the target
 const isCloseEnough = computed(() => {
@@ -52,30 +73,75 @@ function generateTargetLocation(latitude: number, longitude: number) {
   };
 }
 
-// Simulate map click (in a real implementation, this would get coordinates from the map API)
-function handleMapClick(event: MouseEvent) {
-  // This is a simplified implementation - in reality, you'd convert pixel coordinates to geo coordinates
-  if (!userLocation.value || !targetLocation.value) return;
+// Initialize the Leaflet map
+function initMap(latitude: number, longitude: number) {
+  if (!mapContainer.value) return;
   
-  const mapElement = event.currentTarget as HTMLElement;
-  const rect = mapElement.getBoundingClientRect();
-  const x = event.clientX - rect.left;
-  const y = event.clientY - rect.top;
+  // Create the map
+  map.value = L.map(mapContainer.value).setView([latitude, longitude], 15);
   
-  // For demo purposes: convert click position to a location near the user
-  const clickLatitude = userLocation.value.latitude + (y - rect.height / 2) * 0.0001;
-  const clickLongitude = userLocation.value.longitude + (x - rect.width / 2) * 0.0001;
+  // Add the OpenStreetMap tiles
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+    maxZoom: 19
+  }).addTo(map.value);
+
+  const { userIcon } = createMapIcons();
   
-  mapClickPosition.value = { x, y };
+  // Add a marker for the user's position
+  userMarker.value = L.marker([latitude, longitude], {
+    icon: userIcon
+  }).addTo(map.value);
+  userMarker.value.bindPopup('Your Location').openPopup();
   
-  // Calculate distance between click and target
-  if (targetLocation.value) {
-    distance.value = calculateDistance(
-      clickLatitude, 
-      clickLongitude,
-      targetLocation.value.latitude,
-      targetLocation.value.longitude
-    );
+  // Add a circle to show the 1km search radius
+  searchRadiusCircle.value = L.circle([latitude, longitude], {
+    color: '#ff3333',
+    fillColor: '#ff333333',
+    fillOpacity: 0.1,
+    radius: 1000, // 1km radius
+    dashArray: '5, 10',
+    weight: 2
+  }).addTo(map.value);
+  
+  // Handle map clicks
+  map.value.on('click', handleMapClick);
+}
+
+// Handle map click events
+function handleMapClick(event: any) { // Using any for the event type to avoid TypeScript errors
+  if (!map.value || !targetLocation.value) return;
+  
+  const clickLat = event.latlng.lat;
+  const clickLng = event.latlng.lng;
+  
+  // Remove previous click marker if exists
+  if (clickMarker.value) {
+    map.value.removeLayer(clickMarker.value);
+  }
+  
+  // Add a new marker at the clicked location
+  clickMarker.value = L.circle([clickLat, clickLng], {
+    color: '#ff3333',
+    fillColor: '#ff3333',
+    fillOpacity: 0.5,
+    radius: 20
+  }).addTo(map.value);
+  
+  // Calculate distance to the target
+  distance.value = calculateDistance(
+    clickLat,
+    clickLng,
+    targetLocation.value.latitude,
+    targetLocation.value.longitude
+  );
+  
+  // If close enough, show success message
+  if (isCloseEnough.value) {
+    clickMarker.value.setStyle({
+      color: '#33ff33',
+      fillColor: '#33ff33'
+    });
   }
 }
 
@@ -97,13 +163,20 @@ function getUserLocation() {
   
   navigator.geolocation.getCurrentPosition(
     (position) => {
+      const latitude = position.coords.latitude;
+      const longitude = position.coords.longitude;
+      
       userLocation.value = {
-        latitude: position.coords.latitude,
-        longitude: position.coords.longitude
+        latitude,
+        longitude
       };
       
       // Generate a target within 1km of the user
-      generateTargetLocation(position.coords.latitude, position.coords.longitude);
+      generateTargetLocation(latitude, longitude);
+      
+      // Initialize map with user's location
+      initMap(latitude, longitude);
+      
       isLocationLoading.value = false;
     },
     (error) => {
@@ -126,6 +199,14 @@ function getUserLocation() {
     { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
   );
 }
+
+// Clean up map resources when component is unmounted
+onUnmounted(() => {
+  if (map.value) {
+    map.value.remove();
+    map.value = null;
+  }
+});
 
 onMounted(() => {
   // Get user location immediately
@@ -158,24 +239,12 @@ onMounted(() => {
         <p>You need to get within 50 meters of the bomb to proceed.</p>
       </div>
       
-      <!-- Simplified map representation - would be replaced with a real map API -->
-      <div class="mock-map" @click="handleMapClick">
+      <!-- Real map container using Leaflet -->
+      <div ref="mapContainer" class="real-map">
         <div v-if="isLocationLoading" class="loading-overlay">
           <div class="spinner"></div>
           <p>Getting your location...</p>
         </div>
-        
-        <div class="map-center" title="Your Location">
-          <span>YOU</span>
-        </div>
-        
-        <div v-if="mapClickPosition" class="map-click" 
-             :style="{ left: mapClickPosition.x + 'px', top: mapClickPosition.y + 'px' }">
-          <span>X</span>
-        </div>
-        
-        <!-- This circle represents the 1km search radius -->
-        <div class="search-radius"></div>
       </div>
       
       <div v-if="distance !== null" class="distance-info">
@@ -218,11 +287,6 @@ h1 {
   text-align: center;
 }
 
-.loading {
-  text-align: center;
-  margin: 2rem 0;
-}
-
 .spinner {
   display: inline-block;
   width: 40px;
@@ -244,7 +308,7 @@ h1 {
   flex-direction: column;
   justify-content: center;
   align-items: center;
-  z-index: 20;
+  z-index: 1000;
   border-radius: 8px;
 }
 
@@ -271,62 +335,16 @@ h1 {
   width: 100%;
 }
 
-.mock-map {
+/* Styling for the real Leaflet map */
+.real-map {
   width: 100%;
-  height: 300px; /* Better height for mobile */
-  background-color: #242424;
+  height: 350px; /* Better height for mobile */
   border: 2px solid #33ff33;
   position: relative;
   overflow: hidden;
   border-radius: 8px;
   margin-bottom: 1rem;
-  cursor: crosshair;
-}
-
-.map-center {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  transform: translate(-50%, -50%);
-  width: 30px;
-  height: 30px;
-  background-color: #3333ff;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: white;
-  font-size: 8px;
-  font-weight: bold;
   z-index: 10;
-}
-
-.map-click {
-  position: absolute;
-  transform: translate(-50%, -50%);
-  width: 20px;
-  height: 20px;
-  background-color: #ff3333;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: white;
-  font-size: 10px;
-  font-weight: bold;
-  z-index: 5;
-}
-
-.search-radius {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  transform: translate(-50%, -50%);
-  width: 80%;
-  height: 80%;
-  border: 2px dashed #ff3333;
-  border-radius: 50%;
-  opacity: 0.5;
 }
 
 .distance-info {
@@ -377,8 +395,8 @@ h1 {
     margin-bottom: 2rem;
   }
   
-  .mock-map {
-    height: 400px;
+  .real-map {
+    height: 450px;
   }
   
   .retry-button, .proceed-button {
