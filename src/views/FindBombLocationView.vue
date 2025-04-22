@@ -12,7 +12,7 @@ const userLocation = ref<{ latitude: number; longitude: number } | null>(null);
 const targetLocation = ref<{ latitude: number; longitude: number } | null>(null);
 const distance = ref<number | null>(null);
 const errorMessage = ref('');
-const mapLoaded = ref(false);
+const isLocationLoading = ref(true);
 
 // Mock map implementation variables - to be replaced by actual map API
 const mapClickPosition = ref<{ x: number; y: number } | null>(null);
@@ -86,8 +86,12 @@ function proceedToNextStep() {
 
 // Get user's current location
 function getUserLocation() {
+  isLocationLoading.value = true;
+  errorMessage.value = '';
+  
   if (!isGeolocationSupported.value) {
     errorMessage.value = 'Geolocation is not supported by your browser';
+    isLocationLoading.value = false;
     return;
   }
   
@@ -100,9 +104,10 @@ function getUserLocation() {
       
       // Generate a target within 1km of the user
       generateTargetLocation(position.coords.latitude, position.coords.longitude);
-      mapLoaded.value = true;
+      isLocationLoading.value = false;
     },
     (error) => {
+      isLocationLoading.value = false;
       switch (error.code) {
         case error.PERMISSION_DENIED:
           errorMessage.value = 'User denied the request for Geolocation';
@@ -118,14 +123,12 @@ function getUserLocation() {
           break;
       }
     },
-    { enableHighAccuracy: true }
+    { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
   );
 }
 
 onMounted(() => {
-  if (timerRef.value) {
-    timerRef.value.startTimer();
-  }
+  // Get user location immediately
   getUserLocation();
 });
 </script>
@@ -148,12 +151,7 @@ onMounted(() => {
       <button @click="getUserLocation" class="retry-button">Try Again</button>
     </div>
     
-    <div v-else-if="!mapLoaded" class="loading">
-      <p>Getting your location...</p>
-      <div class="spinner"></div>
-    </div>
-    
-    <div v-else class="map-container">
+    <div class="map-container">
       <div class="instructions">
         <p>A bomb has been hidden somewhere within 1km of your location.</p>
         <p>Click on the map to try to find its exact location.</p>
@@ -162,6 +160,11 @@ onMounted(() => {
       
       <!-- Simplified map representation - would be replaced with a real map API -->
       <div class="mock-map" @click="handleMapClick">
+        <div v-if="isLocationLoading" class="loading-overlay">
+          <div class="spinner"></div>
+          <p>Getting your location...</p>
+        </div>
+        
         <div class="map-center" title="Your Location">
           <span>YOU</span>
         </div>
@@ -191,7 +194,7 @@ onMounted(() => {
 .find-bomb-container {
   max-width: 800px;
   margin: 0 auto;
-  padding: 2rem;
+  padding: 0.5rem; /* Reduced padding for mobile */
   color: #e0e0e0;
   font-family: 'Courier New', monospace;
 }
@@ -199,11 +202,12 @@ onMounted(() => {
 h1 {
   color: #33ff33;
   text-align: center;
-  margin-bottom: 2rem;
+  font-size: 1.5rem; /* Smaller font size for mobile */
+  margin: 1rem 0;
 }
 
 .timer-container {
-  margin-bottom: 2rem;
+  margin-bottom: 1rem;
 }
 
 .error-message {
@@ -216,17 +220,37 @@ h1 {
 
 .loading {
   text-align: center;
-  margin: 3rem 0;
+  margin: 2rem 0;
 }
 
 .spinner {
   display: inline-block;
-  width: 50px;
-  height: 50px;
-  border: 5px solid rgba(51, 255, 51, 0.3);
+  width: 40px;
+  height: 40px;
+  border: 4px solid rgba(51, 255, 51, 0.3);
   border-radius: 50%;
   border-top-color: #33ff33;
   animation: spin 1s ease-in-out infinite;
+}
+
+.loading-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.7);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  z-index: 20;
+  border-radius: 8px;
+}
+
+.loading-overlay p {
+  margin-top: 1rem;
+  color: #33ff33;
 }
 
 @keyframes spin {
@@ -235,14 +259,21 @@ h1 {
 
 .instructions {
   background-color: rgba(0, 0, 0, 0.7);
-  padding: 1rem;
+  padding: 0.75rem;
   border-radius: 8px;
   margin-bottom: 1rem;
+  font-size: 0.9rem;
+}
+
+.map-container {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
 }
 
 .mock-map {
   width: 100%;
-  height: 400px;
+  height: 300px; /* Better height for mobile */
   background-color: #242424;
   border: 2px solid #33ff33;
   position: relative;
@@ -318,18 +349,41 @@ h1 {
   background-color: #33ff33;
   color: black;
   border: none;
-  padding: 0.5rem 1.5rem;
-  font-size: 1.2rem;
+  padding: 0.5rem 1rem;
+  font-size: 1rem;
   font-weight: bold;
   border-radius: 8px;
   cursor: pointer;
-  margin-top: 1rem;
+  margin-top: 0.5rem;
   font-family: 'Courier New', monospace;
   transition: all 0.3s ease;
+  width: 100%; /* Full width buttons on mobile */
+  max-width: 300px;
 }
 
 .retry-button:hover, .proceed-button:hover {
   transform: scale(1.05);
   box-shadow: 0 0 15px rgba(51, 255, 51, 0.7);
+}
+
+/* Media queries for larger screens */
+@media (min-width: 768px) {
+  .find-bomb-container {
+    padding: 2rem;
+  }
+  
+  h1 {
+    font-size: 2rem;
+    margin-bottom: 2rem;
+  }
+  
+  .mock-map {
+    height: 400px;
+  }
+  
+  .retry-button, .proceed-button {
+    width: auto;
+    padding: 0.5rem 1.5rem;
+  }
 }
 </style>

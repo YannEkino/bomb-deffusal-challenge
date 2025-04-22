@@ -14,7 +14,7 @@ const emit = defineEmits<{
 const router = useRouter();
 const timeLeft = ref(props.initialTime || 300); // Default 5 minutes
 const timerInterval = ref<number | null>(null);
-const isRunning = ref(props.start || false);
+const isRunning = ref(false);
 
 // Format time as MM:SS
 const formattedTime = computed(() => {
@@ -62,17 +62,21 @@ function resetTimer() {
 
 // Watch for start prop changes
 watch(() => props.start, (newVal) => {
-  if (newVal) {
+  if (newVal && !isRunning.value) {
     startTimer();
-  } else {
+  } else if (!newVal && isRunning.value) {
     stopTimer();
   }
-});
+}, { immediate: true });
 
 // Setup and cleanup
 onMounted(() => {
-  if (props.start) {
-    startTimer();
+  // Force start the timer if the start prop is true
+  if (props.start === true) {
+    // Small delay to ensure DOM is ready on mobile
+    setTimeout(() => {
+      startTimer();
+    }, 100);
   }
 });
 
