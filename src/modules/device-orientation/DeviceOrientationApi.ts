@@ -34,7 +34,6 @@ interface DeviceOrientationEventiOS extends DeviceOrientationEvent {
 
 export class DeviceOrientationApi {
   private orientationHandler: ((event: DeviceOrientationEvent) => void) | null = null;
-  private motionHandler: ((event: DeviceMotionEvent) => void) | null = null;
   private permissionState: 'granted' | 'denied' | 'prompt' = 'prompt';
 
   /**

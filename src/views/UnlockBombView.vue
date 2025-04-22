@@ -2,7 +2,7 @@
 import { ref, onMounted, onUnmounted } from 'vue';
 import { useRouter } from 'vue-router';
 import CountdownTimer from '../components/shared/CountdownTimer.vue';
-import { SpeechRecognitionApi, SpeechRecognitionResult } from '../modules/speech-recognition/SpeechRecognitionApi';
+import { SpeechRecognitionApi, type SpeechRecognitionResult } from '../modules/speech-recognition/SpeechRecognitionApi';
 
 const router = useRouter();
 const timerRef = ref<InstanceType<typeof CountdownTimer> | null>(null);
