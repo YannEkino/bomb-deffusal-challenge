@@ -65,30 +65,24 @@ function handleOrientationEvent(event: DeviceOrientationEvent) {
 
 // Request permission for device orientation (only needed for iOS 13+)
 async function requestOrientationPermission() {
-  // Type definition for the DeviceOrientationEvent with requestPermission
-  interface DeviceOrientationEventiOS extends DeviceOrientationEvent {
-    requestPermission?: () => Promise<'granted' | 'denied'>;
-  }
-
   try {
     // Check if the device requires permission (iOS 13+)
-    if (typeof (DeviceOrientationEvent as unknown as DeviceOrientationEventiOS).requestPermission === 'function') {
-      const requestPermission = (DeviceOrientationEvent as unknown as DeviceOrientationEventiOS).requestPermission;
-        if (typeof requestPermission === 'function') {
-            const permissionState = await requestPermission();
-        if (permissionState === 'granted') {
-            permissionGranted.value = true;
-            window.addEventListener('deviceorientation', handleOrientationEvent);
-            startStabilityCheck();
-        } else {
-            errorMessage.value = 'Permission to access device orientation was denied';
-        }
-        } else {
-        // No permission required, directly add the event listener
+    if (typeof DeviceOrientationEvent !== 'undefined' && 
+        typeof (DeviceOrientationEvent as any).requestPermission === 'function') {
+      const permissionState = await (DeviceOrientationEvent as any).requestPermission();
+      if (permissionState === 'granted') {
         permissionGranted.value = true;
         window.addEventListener('deviceorientation', handleOrientationEvent);
         startStabilityCheck();
-        }
+      } else {
+        errorMessage.value = 'Permission to access device orientation was denied';
+      }
+    } else {
+      // No permission required (Android, desktop browsers), directly add the event listener
+      console.log('No permission needed for this browser/device, proceeding directly');
+      permissionGranted.value = true;
+      window.addEventListener('deviceorientation', handleOrientationEvent);
+      startStabilityCheck();
     }
   } catch (error) {
     console.error('Error requesting device orientation permission:', error);
@@ -127,10 +121,6 @@ function proceedToSuccess() {
 }
 
 onMounted(() => {
-  if (timerRef.value) {
-    timerRef.value.startTimer();
-  }
-
   if (!isDeviceOrientationSupported.value) {
     errorMessage.value = 'Device orientation is not supported on your device';
   }
@@ -157,7 +147,7 @@ declare global {
     <h1>Step 3: Defuse the Bomb</h1>
     
     <div class="timer-container">
-      <CountdownTimer ref="timerRef" :initialTime="300" :start="true" />
+      <CountdownTimer ref="timerRef" :start="true" />
     </div>
     
     <div v-if="!isDeviceOrientationSupported" class="error-message">

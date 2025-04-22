@@ -47,8 +47,13 @@ function initializeSpeechRecognition() {
 
 // Start listening for speech
 async function startListening() {
-  if (!speechRecognition.value) return;
+  if (!speechRecognition.value) {
+    initializeSpeechRecognition(); // Initialize if not already done
+    if (!speechRecognition.value) return; // Exit if initialization failed
+  }
   
+  // Clear any previous error messages when retrying
+  errorMessage.value = '';
   isListening.value = true;
   recognizedText.value = '';
   
@@ -95,10 +100,6 @@ onUnmounted(() => {
 
 // Initialize on component mount
 onMounted(() => {
-  if (timerRef.value) {
-    timerRef.value.startTimer();
-  }
-  
   initializeSpeechRecognition();
 });
 </script>
@@ -108,7 +109,7 @@ onMounted(() => {
     <h1>Step 2: Unlock the Bomb</h1>
     
     <div class="timer-container">
-      <CountdownTimer ref="timerRef" :initialTime="300" :start="true" />
+      <CountdownTimer ref="timerRef" :start="true" />
     </div>
     
     <div v-if="!isSpeechRecognitionSupported" class="error-message">
@@ -118,7 +119,7 @@ onMounted(() => {
     
     <div v-else-if="errorMessage" class="error-message">
       <p>{{ errorMessage }}</p>
-      <button @click="initializeSpeechRecognition" class="retry-button">Retry</button>
+      <button @click="startListening" class="retry-button">Retry</button>
     </div>
     
     <div v-else class="challenge-container">

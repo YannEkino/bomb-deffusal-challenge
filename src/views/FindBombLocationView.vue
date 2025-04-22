@@ -209,6 +209,12 @@ onUnmounted(() => {
 });
 
 onMounted(() => {
+  // Start the timer only once at the beginning of the first challenge
+  if (router.currentRoute.value.path === '/find-bomb-location') {
+    if (timerRef.value) {
+      timerRef.value.startTimer();
+    }
+  }
   // Get user location immediately
   getUserLocation();
 });
@@ -219,7 +225,7 @@ onMounted(() => {
     <h1>Step 1: Find the Bomb Location</h1>
     
     <div class="timer-container">
-      <CountdownTimer ref="timerRef" :initialTime="300" :start="true" />
+      <CountdownTimer ref="timerRef" :start="true" />
     </div>
     
     <div v-if="!isGeolocationSupported" class="error-message">

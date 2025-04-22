@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, computed, watch } from 'vue';
+import { onUnmounted, computed, watch } from 'vue';
 import { useRouter } from 'vue-router';
+import { timerStore } from '../../store/timerStore';
 
 const props = defineProps<{
-  initialTime?: number; // Time in seconds
   start?: boolean;
 }>();
 
@@ -12,53 +12,24 @@ const emit = defineEmits<{
 }>();
 
 const router = useRouter();
-const timeLeft = ref(props.initialTime || 300); // Default 5 minutes
-const timerInterval = ref<number | null>(null);
-const isRunning = ref(false);
 
-// Format time as MM:SS
-const formattedTime = computed(() => {
-  const minutes = Math.floor(timeLeft.value / 60);
-  const seconds = timeLeft.value % 60;
-  return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-});
+// Use the shared timer state from timerStore
+const timeLeft = computed(() => timerStore.timeLeft.value);
+const isRunning = computed(() => timerStore.isRunning.value);
 
-// Progress percentage for visual indicator
-const progressPercentage = computed(() => {
-  const initialTime = props.initialTime || 300;
-  return (timeLeft.value / initialTime) * 100;
-});
+// Format time as MM:SS using the store's helper method
+const formattedTime = computed(() => timerStore.getFormattedTime());
 
-// Start the countdown
-function startTimer() {
-  if (!isRunning.value && timeLeft.value > 0) {
-    isRunning.value = true;
-    timerInterval.value = window.setInterval(() => {
-      if (timeLeft.value > 0) {
-        timeLeft.value--;
-      } else {
-        stopTimer();
-        emit('timeUp');
-        router.push('/game-over');
-      }
-    }, 1000);
+// Progress percentage for visual indicator using the store's helper method
+const progressPercentage = computed(() => timerStore.getProgressPercentage());
+
+// Game over when time runs out
+watch(timeLeft, (newValue) => {
+  if (newValue === 0) {
+    emit('timeUp');
+    router.push('/game-over');
   }
-}
-
-// Stop the countdown
-function stopTimer() {
-  if (timerInterval.value) {
-    clearInterval(timerInterval.value);
-    timerInterval.value = null;
-  }
-  isRunning.value = false;
-}
-
-// Reset the timer
-function resetTimer() {
-  stopTimer();
-  timeLeft.value = props.initialTime || 300;
-}
+});
 
 // Watch for start prop changes
 watch(() => props.start, (newVal) => {
@@ -69,19 +40,22 @@ watch(() => props.start, (newVal) => {
   }
 }, { immediate: true });
 
-// Setup and cleanup
-onMounted(() => {
-  // Force start the timer if the start prop is true
-  if (props.start === true) {
-    // Small delay to ensure DOM is ready on mobile
-    setTimeout(() => {
-      startTimer();
-    }, 100);
-  }
-});
+// These methods now just delegate to the timerStore
+function startTimer() {
+  timerStore.startTimer();
+}
 
+function stopTimer() {
+  timerStore.stopTimer();
+}
+
+function resetTimer() {
+  timerStore.resetTimer();
+}
+
+// Setup and cleanup
 onUnmounted(() => {
-  stopTimer();
+  // No need to stop the timer here, as we want it to continue running across component changes
 });
 
 defineExpose({
