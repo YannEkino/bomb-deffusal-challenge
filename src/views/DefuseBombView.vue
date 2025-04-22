@@ -73,19 +73,22 @@ async function requestOrientationPermission() {
   try {
     // Check if the device requires permission (iOS 13+)
     if (typeof (DeviceOrientationEvent as unknown as DeviceOrientationEventiOS).requestPermission === 'function') {
-      const permissionState = await (DeviceOrientationEvent as unknown as DeviceOrientationEventiOS).requestPermission();
-      if (permissionState === 'granted') {
+      const requestPermission = (DeviceOrientationEvent as unknown as DeviceOrientationEventiOS).requestPermission;
+        if (typeof requestPermission === 'function') {
+            const permissionState = await requestPermission();
+        if (permissionState === 'granted') {
+            permissionGranted.value = true;
+            window.addEventListener('deviceorientation', handleOrientationEvent);
+            startStabilityCheck();
+        } else {
+            errorMessage.value = 'Permission to access device orientation was denied';
+        }
+        } else {
+        // No permission required, directly add the event listener
         permissionGranted.value = true;
         window.addEventListener('deviceorientation', handleOrientationEvent);
         startStabilityCheck();
-      } else {
-        errorMessage.value = 'Permission to access device orientation was denied';
-      }
-    } else {
-      // No permission required, directly add the event listener
-      permissionGranted.value = true;
-      window.addEventListener('deviceorientation', handleOrientationEvent);
-      startStabilityCheck();
+        }
     }
   } catch (error) {
     console.error('Error requesting device orientation permission:', error);
