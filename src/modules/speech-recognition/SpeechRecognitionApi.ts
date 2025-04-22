@@ -28,6 +28,7 @@ export interface SpeechRecognitionError {
 export class SpeechRecognitionApi {
   private recognition: any;
   private isListening: boolean = false;
+  private resultReceived: boolean = false;
 
   /**
    * Check if Speech Recognition is supported in the current browser
@@ -102,8 +103,12 @@ export class SpeechRecognitionApi {
    */
   listen(): Promise<SpeechRecognitionResult> {
     return new Promise((resolve, reject) => {
+      // Reset the result received flag
+      this.resultReceived = false;
+      
       // Set up result handler
       this.recognition.onresult = (event: any) => {
+        this.resultReceived = true;
         const result = event.results[0][0];
         resolve({
           transcript: result.transcript,
@@ -113,6 +118,7 @@ export class SpeechRecognitionApi {
 
       // Set up error handler
       this.recognition.onerror = (event: any) => {
+        this.isListening = false;
         reject({
           error: event.error,
           message: this.getErrorMessage(event.error)
@@ -122,8 +128,8 @@ export class SpeechRecognitionApi {
       // Set up end handler (in case no result was found)
       this.recognition.onend = () => {
         this.isListening = false;
-        // Only reject if no result was found (if result was found, onresult would have been called)
-        if (this.recognition.onresult !== null) {
+        // Only reject if no result was received
+        if (!this.resultReceived) {
           reject({
             error: 'no-speech',
             message: 'No speech was detected'
